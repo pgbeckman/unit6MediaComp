@@ -247,26 +247,27 @@ public class Picture extends SimplePicture
      * @param startRow the start row to copy to
      * @param startCol the start col to copy to
      */
-    public void copy(Picture fromPic, int startSourceRow, int endSourceRow, int startSourceCol, int endSourceCol,
-    int startDestRow, int startDestCol )
+    public void copy(Picture fromPic, int startDestRow, int startDestCol, double shrinkFactor)
     {
         Pixel fromPixel = null;
         Pixel toPixel = null;
         Pixel[][] toPixels = this.getPixels2D();
         Pixel[][] fromPixels = fromPic.getPixels2D();
-        for (int fromRow = startSourceRow, toRow = startDestRow; 
-        fromRow < endSourceRow &&
-        toRow < toPixels.length; 
+        int height = fromPixels.length;
+        int width = fromPixels[0].length;
+        for (int fromRow = 0, toRow = startDestRow; 
+        fromRow < height &&
+        toRow < height+startDestRow; 
         fromRow++, toRow++)
         {
-            for (int fromCol = startSourceCol, toCol = startDestCol; 
-            fromCol < endSourceCol &&
-            toCol < toPixels[0].length;  
+            for (int fromCol = 0, toCol = startDestCol; 
+            fromCol < width &&
+            toCol < width+startDestCol;  
             fromCol++, toCol++)
             {
                 fromPixel = fromPixels[fromRow][fromCol];
-                toPixel = toPixels[toRow][toCol];
-                toPixel.setColor(fromPixel.getColor());
+                    toPixel = toPixels[(int)(shrinkFactor*toRow)][(int)(shrinkFactor*toCol)];
+                    toPixel.setColor(fromPixel.getColor());
             }
         }   
     }
@@ -338,28 +339,108 @@ public class Picture extends SimplePicture
             }
         }   
     }
+    
+    /** copy from the passed fromPic to the
+     * specified startRow and startCol in the
+     * current picture and changes transparency
+     * @param fromPic the picture to copy from
+     * @param startRow the start row to copy to
+     * @param startCol the start col to copy to
+     */
+    public void copyTransparent(Picture fromPic, int startDestRow, int startDestCol, double shrinkFactor, double transFactor)
+    {
+        Pixel fromPixel = null;
+        Pixel toPixel = null;
+        int setRed = 0;
+        int setBlue = 0;
+        int setGreen = 0;
+        Pixel[][] toPixels = this.getPixels2D();
+        Pixel[][] fromPixels = fromPic.getPixels2D();
+        int height = fromPixels.length;
+        int width = fromPixels[0].length;
+        for (int fromRow = 0, toRow = startDestRow; 
+        fromRow < height &&
+        toRow < height+startDestRow; 
+        fromRow++, toRow++)
+        {
+            for (int fromCol = 0, toCol = startDestCol; 
+            fromCol < width &&
+            toCol < width+startDestCol;  
+            fromCol++, toCol++)
+            {
+                fromPixel = fromPixels[fromRow][fromCol];
+                toPixel = toPixels[(int)(shrinkFactor*toRow)][(int)(shrinkFactor*toCol)];
+                if(toPixel.getRed()+transFactor*(255-fromPixel.getRed())<=255){
+                setRed = (int)(toPixel.getRed()+transFactor*(255-fromPixel.getRed()));
+            }
+            else{
+                setRed = 255;
+            }
+            if(toPixel.getBlue()+transFactor*(255-fromPixel.getBlue())<=255){
+                setBlue = (int)(toPixel.getBlue()+transFactor*(255-fromPixel.getBlue()));
+            }
+            else{
+                setBlue = 255;
+            }
+            if(toPixel.getGreen()+transFactor*(255-fromPixel.getGreen())<=255){
+                setGreen = (int)(toPixel.getGreen()+transFactor*(255-fromPixel.getGreen()));
+            }
+            else{
+                setGreen = 255;
+            }
+                Color setToColor = new Color(setRed, setGreen, setBlue);
+                toPixel.setColor(setToColor);
+            }
+        }   
+    }
+    
+    /** reduces specificity of color palette
+     * @param categoryWidth
+     */
+    public void posterize(int categoryWidth)
+    {
+        Pixel selectedPixel = null;
+        Color setToColor = null;
+        Pixel[][] pixels = this.getPixels2D();
+        for (int row = 0; row < pixels.length; row++)
+        {
+            for (int col = 0; col < pixels[0].length-1; col++)
+            {
+                selectedPixel = pixels[row][col];
+                int setRed = Math.round((selectedPixel.getRed())/categoryWidth)*categoryWidth;
+                int setGreen = Math.round((selectedPixel.getGreen())/categoryWidth)*categoryWidth;
+                int setBlue = Math.round((selectedPixel.getBlue())/categoryWidth)*categoryWidth;
+                 if(setRed<255-categoryWidth &&
+                    setGreen<255-categoryWidth &&
+                    setBlue<255-categoryWidth){
+                setToColor = new Color(setRed, setGreen, setBlue);
+                selectedPixel.setColor(setToColor);
+              }
+            }
+        }
+    }
 
     /* Main method for testing - each class in Java can have a main 
      * method 
      */
     public static void main(String[] args) 
     {
-        //Picture beach = new Picture("beach.jpg");
-        //beach.mirrorVertical();
-        //beach.mirrorVerticalRightToLeft();
-        //beach.mirrorHorizontal();
-        //beach.mirrorToptoBotHorizontal();
-        //beach.zeroBlue();
-        //beach.mirrorDiagonal();
-        //beach.mirrorSnowman();
-        //beach.zeroBlue();
-        //beach.keepBlue();
-        Picture total = new Picture("blankCanvas.jpg");
+        Picture canvas = new Picture("blankCanvas.jpg");
         Picture yak = new Picture("yak.jpg");
-        total.copyRotate(yak, 20, 20, 0, 1);
-        total.copyRotate(yak, 150, 150, 20, .6);
-        total.copyRotate(yak, 250, 250, 45, .2);
-        total.explore();
+        Picture apple = new Picture("apple.jpg");
+        Picture pear = new Picture("pear.jpg");
+        canvas.copy(apple, 20, 20, .8);
+        apple.posterize(50);
+        canvas.copyRotate(apple, 110, 400, 15, .6);
+        apple.posterize(100);
+        canvas.copyRotate(apple, 400, 1200, 30, .4);
+        apple.posterize(200);
+        canvas.copyRotate(apple, 1500, 3500, 45, .2);
+        canvas.copyTransparent(pear, 300, 300, .5, .3);
+        canvas.copyTransparent(pear, 700, 900, .5, .16);
+        canvas.copyTransparent(pear, 400, 1300, .5, .05);
+        canvas.write("H:\\GitHub\\unit6MediaComp\\PictureLab\\images\\Collage.jpg");
+        canvas.explore();
     }
 
 } // this } is the end of class Picture, put all new methods before this
